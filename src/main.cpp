@@ -64,7 +64,8 @@ Adafruit_ADS1115 ads;  /* Use this for the 16-bit version */
 
 
 
-
+long interval = 1800;  
+long previousMillis = 0;
 //*****************Arduino anemometer sketch******************************
 const byte interruptPin = 18; //anemomter input to digital pin
 volatile unsigned long sTime = 0; //stores start time for wind speed calculation
@@ -103,11 +104,7 @@ float getAvgWindSpeed(float cPulse,int per) {
 void setup() {
 
 //-------analog setup here
-  Serial.begin(9600);
-  Serial.println("Hello!");
-
-  Serial.println("Getting single-ended readings from AIN0..3");
-  Serial.println("ADC Range: +/- 6.144V (1 bit = 3mV/ADS1015, 0.1875mV/ADS1115)");
+ 
 
   // The ADC input range (or gain) can be changed via the following
   // functions, but be careful never to exceed VDD +0.3V max, or to
@@ -135,61 +132,63 @@ void setup() {
 }
 
 void loop() {
- 
-  unsigned long rTime = millis();
+  Serial.begin(9600);
+  Serial.println("Hello!");
 
+  Serial.println("Getting single-ended readings from AIN0..3");
+  Serial.println("ADC Range: +/- 6.144V (1 bit = 3mV/ADS1015, 0.1875mV/ADS1115)");
+
+ unsigned long rTime = millis();
   
   if((rTime - sTime) > 2500) pulseTime = 0; //if the wind speed has dropped below 1MPH than set it to zero
      
-  if((rTime - dataTimer) > 1800){ //See if it is time to transmit
-   
-    detachInterrupt(interruptPin); //shut off wind speed measurement interrupt until done communication
-    float aWSpeed = getAvgWindSpeed(culPulseTime,avgWindCount); //calculate average wind speed
-    if(aWSpeed >= aSetting) digitalWrite(13, HIGH);   // high speed wind detected so turn the LED on
-    else digitalWrite(13, LOW);   //no alarm so ensure LED is off
-    culPulseTime = 0; //reset cumulative pulse counter
-    avgWindCount = 0; //reset average wind count
+  if((rTime - dataTimer) > 6000){ //See if it is time to transmit
+      detachInterrupt(interruptPin); //shut off wind speed measurement interrupt until done communication
+      float aWSpeed = getAvgWindSpeed(culPulseTime,avgWindCount); //calculate average wind speed
+      if(aWSpeed >= aSetting) digitalWrite(13, HIGH);   // high speed wind detected so turn the LED on
+      else digitalWrite(13, LOW);   //no alarm so ensure LED is off
+      culPulseTime = 0; //reset cumulative pulse counter
+      avgWindCount = 0; //reset average wind count
 
-    float aFreq = 0; //set to zero initially
-    if(pulseTime > 0.0) aFreq = getAnemometerFreq(pulseTime); //calculate frequency in Hz of anemometer, only if pulsetime is non-zero
-    float wSpeedMPH = getWindMPH(aFreq); //calculate wind speed in MPH, note that the 2.5 comes from anemometer data sheet
-    //Serial.begin(9600); //start serial monitor to communicate wind data
-    Serial.println();
-    Serial.println("...................................");
-    Serial.print("Anemometer speed in Hz ");
-    Serial.println(aFreq);
-    Serial.print("Current wind speed is ");
-    Serial.println(wSpeedMPH);
-    Serial.print("Current average wind speed is ");
-    Serial.println(aWSpeed);
-    Serial.end(); //serial uses interrupts so we want to turn it off before we turn the wind measurement interrupts back on
-   
-    start = true; //reset start variable in case we missed wind data while communicating current data out
-    attachInterrupt(digitalPinToInterrupt(interruptPin), anemometerISR, RISING); //turn interrupt back on
-    dataTimer = millis(); //reset loop timer
-  }
+      float aFreq = 0; //set to zero initially
+      if(pulseTime > 0.0) aFreq = getAnemometerFreq(pulseTime); //calculate frequency in Hz of anemometer, only if pulsetime is non-zero
+      float wSpeedMPH = getWindMPH(aFreq); //calculate wind speed in MPH, note that the 2.5 comes from anemometer data sheet
+      //Serial.begin(9600); //start serial monitor to communicate wind data
+      Serial.println();
+      Serial.println("...................................");
+      Serial.print("Anemometer speed in Hz ");
+      Serial.println(aFreq);
+      Serial.print("Current wind speed is ");
+      Serial.println(wSpeedMPH);
+      Serial.print("Current average wind speed is ");
+      Serial.println(aWSpeed);
+      Serial.end(); //serial uses interrupts so we want to turn it off before we turn the wind measurement interrupts back on
+    
+      start = true; //reset start variable in case we missed wind data while communicating current data out
+      attachInterrupt(digitalPinToInterrupt(interruptPin), anemometerISR, RISING); //turn interrupt back on
+      dataTimer = millis(); //reset loop timer
+    } else {
+       int16_t adc0, adc1, adc2, adc3;
+       float volts0, volts1, volts2, volts3;
 
-//-------analog starts here
+      adc0 = ads.readADC_SingleEnded(0);
+      adc1 = ads.readADC_SingleEnded(1);
+      adc2 = ads.readADC_SingleEnded(2);
+      adc3 = ads.readADC_SingleEnded(3);
 
-  int16_t adc0, adc1, adc2, adc3;
-  float volts0, volts1, volts2, volts3;
-
-  adc0 = ads.readADC_SingleEnded(0);
-  adc1 = ads.readADC_SingleEnded(1);
-  adc2 = ads.readADC_SingleEnded(2);
-  adc3 = ads.readADC_SingleEnded(3);
-
-  volts0 = ads.computeVolts(adc0);
-  volts1 = ads.computeVolts(adc1);
-  volts2 = ads.computeVolts(adc2);
-  volts3 = ads.computeVolts(adc3);
-  
-  Serial.println("test");
-  Serial.println("-----------------------------------------------------------");
-  Serial.print("AIN0: "); Serial.print(adc0); Serial.print("  "); Serial.print(volts0); Serial.println("V");
-  Serial.print("AIN1: "); Serial.print(adc1); Serial.print("  "); Serial.print(volts1); Serial.println("V");
-  Serial.print("AIN2: "); Serial.print(adc2); Serial.print("  "); Serial.print(volts2); Serial.println("V");
-  Serial.print("AIN3: "); Serial.print(adc3); Serial.print("  "); Serial.print(volts3); Serial.println("V");
+      volts0 = ads.computeVolts(adc0);
+      volts1 = ads.computeVolts(adc1);
+      volts2 = ads.computeVolts(adc2);
+      volts3 = ads.computeVolts(adc3);
+      
+      Serial.println("-----------------------------------------------------------");
+      Serial.print("AIN0: "); Serial.print(adc0); Serial.print("  "); Serial.print(volts0); Serial.println("V");
+      Serial.print("AIN1: "); Serial.print(adc1); Serial.print("  "); Serial.print(volts1); Serial.println("V");
+      Serial.print("AIN2: "); Serial.print(adc2); Serial.print("  "); Serial.print(volts2); Serial.println("V");
+      Serial.print("AIN3: "); Serial.print(adc3); Serial.print("  "); Serial.print(volts3); Serial.println("V");
+      // delay(500);
+    }
+  delay(500);
 }
 
 
