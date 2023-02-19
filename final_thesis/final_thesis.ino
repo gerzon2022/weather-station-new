@@ -2,13 +2,17 @@
 #include <Adafruit_ADS1X15.h>
 #include "Adafruit_Si7021.h"
 
-// REQUIRES the following Arduino libraries:
-// - DHT Sensor Library: https://github.com/adafruit/DHT-sensor-library
-// - Adafruit Unified Sensor Lib: https://github.com/adafruit/Adafruit_Sensor
+#include <WiFi.h>
+#include <HTTPClient.h>
 
-//#include <Adafruit_Sensor.h>
 
-//dht11 lib till here --
+const char* ssid = "REPLACE_WITH_YOUR_SSID";
+const char* password = "REPLACE_WITH_YOUR_PASSWORD";
+
+//Your Domain name with URL path or IP address with path
+String serverName = "http://192.168.1.106:1880/update-sensor";
+
+
 
 uint32_t delayMS;
 //--dht var till here
@@ -136,9 +140,56 @@ void temp(){
   //}
 
 }
+
+void wifi_send_data() {
+  //Check WiFi connection status
+    if(WiFi.status()== WL_CONNECTED){
+      HTTPClient http;
+
+      String serverPath = serverName + "?temperature=24.37";
+      
+      // Your Domain name with URL path or IP address with path
+      http.begin(serverPath.c_str());
+      
+      // If you need Node-RED/server authentication, insert user and password below
+      //http.setAuthorization("REPLACE_WITH_SERVER_USERNAME", "REPLACE_WITH_SERVER_PASSWORD");
+      
+      // Send HTTP GET request
+      int httpResponseCode = http.GET();
+      
+      if (httpResponseCode>0) {
+        Serial.print("HTTP Response code: ");
+        Serial.println(httpResponseCode);
+        String payload = http.getString();
+        Serial.println(payload);
+      }
+      else {
+        Serial.print("Error code: ");
+        Serial.println(httpResponseCode);
+      }
+      // Free resources
+      http.end();
+    }
+    else {
+      Serial.println("WiFi Disconnected");
+    }
+}
+
 void setup() {
 
 Serial.begin(9600);
+
+WiFi.begin(ssid, password);
+  Serial.println("Connecting");
+  while(WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println("");
+  Serial.print("Connected to WiFi network with IP Address: ");
+  Serial.println(WiFi.localIP());
+ 
+  //Serial.println("Timer set to 5 seconds (timerDelay variable), it will take 5 seconds before publishing the first reading.");
 
 
 //-------analog setup here
@@ -207,9 +258,12 @@ if((rTime - dataTimer) > 6000){ //See if it is time to transmit
     anenometer();
   } else if((rTime - dataTimer) > 3000) { 
     temp();
-  } else {
+  } else if((rTime - dataTimer) > 9000) {
     adc();
+  } else if((rTime - dataTimer) > 11000) {
+    wifi_send_data();
   }
+  
 delay(1000);
 }
 
