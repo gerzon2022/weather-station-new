@@ -10,9 +10,9 @@ const char* ssid = "REPLACE_WITH_YOUR_SSID";
 const char* password = "REPLACE_WITH_YOUR_PASSWORD";
 
 //Your Domain name with URL path or IP address with path
-String serverName = "http://192.168.1.106:1880/update-sensor";
+String serverName = "https://weather-station-2023.000webhostapp.com/TX.php";
 
-
+//https://weather-station-2023.000webhostapp.com/tx.php?rain=1&wind=2&temp=3&humid=4&solar=5
 
 uint32_t delayMS;
 //--dht var till here
@@ -146,7 +146,7 @@ void wifi_send_data() {
     if(WiFi.status()== WL_CONNECTED){
       HTTPClient http;
 
-      String serverPath = serverName + "?temperature=24.37";
+      String serverPath = serverName + "?rain=1&wind=2&temp=3&humid=4&solar=5";
       
       // Your Domain name with URL path or IP address with path
       http.begin(serverPath.c_str());
