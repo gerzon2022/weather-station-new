@@ -6,8 +6,8 @@
 #include <HTTPClient.h>
 
 
-const char* ssid = "REPLACE_WITH_YOUR_SSID";
-const char* password = "REPLACE_WITH_YOUR_PASSWORD";
+const char* ssid = "PLDTHOMEFIBRrf3P2";
+const char* password = "PLDTWIFIgFyQZ";
 
 //Your Domain name with URL path or IP address with path
 String serverName = "https://weather-station-2023.000webhostapp.com/TX.php";
@@ -17,14 +17,18 @@ String serverName = "https://weather-station-2023.000webhostapp.com/TX.php";
 uint32_t delayMS;
 //--dht var till here
 
-Adafruit_ADS1115 ads;  /* Use this for the 16-bit version */
-//Adafruit_ADS1015 ads;     /* Use this for the 12-bit version */
+//Adafruit_ADS1115 ads;  /* Use this for the 16-bit version */
+Adafruit_ADS1015 ads;     /* Use this for the 12-bit version */
 
 
 //   delay(1000);
 // }
 
-
+float tempVal = 0;
+float humidVal = 0;
+float windVal = 0;
+float solarVal = 0;
+float rainVal = 0;
 
 bool enableHeater = false;
 uint8_t loopCnt = 0;
@@ -66,8 +70,8 @@ float getAvgWindSpeed(float cPulse,int per) {
   if(per) return getWindMPH(getAnemometerFreq((float)(cPulse/per)));
   else return 0; //average wind speed is zero and we can't divide by zero
   }
-void adc() {
-  Serial.begin(9600);
+void ads_new() {
+  //Serial.begin(9600);
   Serial.println("Hello!");
 
   Serial.println("Getting single-ended readings from AIN0..3");
@@ -85,7 +89,7 @@ void adc() {
       volts1 = ads.computeVolts(adc1);
       volts2 = ads.computeVolts(adc2);
       volts3 = ads.computeVolts(adc3);
-      
+      solarVal = volts0;
       Serial.println("-----------------------------------------------------------");
       Serial.print("AIN0: "); Serial.print(adc0); Serial.print("  "); Serial.print(volts0); Serial.println("V");
       Serial.print("AIN1: "); Serial.print(adc1); Serial.print("  "); Serial.print(volts1); Serial.println("V");
@@ -103,6 +107,7 @@ void anenometer(){
       float aFreq = 0; //set to zero initially
       if(pulseTime > 0.0) aFreq = getAnemometerFreq(pulseTime); //calculate frequency in Hz of anemometer, only if pulsetime is non-zero
       float wSpeedMPH = getWindMPH(aFreq); //calculate wind speed in MPH, note that the 2.5 comes from anemometer data sheet
+      windVal = getWindKPH(wSpeedMPH);
       //Serial.begin(9600); //start serial monitor to communicate wind data
       Serial.println();
       Serial.println("...................................");
@@ -112,7 +117,7 @@ void anenometer(){
       Serial.println(wSpeedMPH);
       Serial.print("Current average wind speed is ");
       Serial.println(aWSpeed);
-      Serial.end(); //serial uses interrupts so we want to turn it off before we turn the wind measurement interrupts back on
+      //Serial.end(); //serial uses interrupts so we want to turn it off before we turn the wind measurement interrupts back on
     
       start = true; //reset start variable in case we missed wind data while communicating current data out
       attachInterrupt(digitalPinToInterrupt(interruptPin), anemometerISR, RISING); //turn interrupt back on
@@ -120,9 +125,11 @@ void anenometer(){
 }
 void temp(){
   Serial.print("Humidity:    ");
-  Serial.print(sensor.readHumidity(), 2);
+  humidVal = sensor.readHumidity();
+  Serial.print(humidVal, 2);
   Serial.print("\tTemperature: ");
-  Serial.println(sensor.readTemperature(), 2);
+  tempVal = sensor.readTemperature();
+  Serial.println(tempVal, 2);
   delay(1000);
 
   // Toggle heater enabled state every 30 seconds
@@ -146,8 +153,8 @@ void wifi_send_data() {
     if(WiFi.status()== WL_CONNECTED){
       HTTPClient http;
 
-      String serverPath = serverName + "?rain=1&wind=2&temp=3&humid=4&solar=5";
-      
+      String serverPath = serverName + "?rain="+rainVal+"&wind="+windVal+"&temp="+ tempVal +"&humid="+humidVal+"&solar="+solarVal;
+      Serial.println(serverPath);
       // Your Domain name with URL path or IP address with path
       http.begin(serverPath.c_str());
       
@@ -174,6 +181,7 @@ void wifi_send_data() {
       Serial.println("WiFi Disconnected");
     }
 }
+
 
 void setup() {
 
@@ -255,16 +263,19 @@ void loop() {
 if((rTime - sTime) > 2500) pulseTime = 0; //if the wind speed has dropped below 1MPH than set it to zero
     
 if((rTime - dataTimer) > 6000){ //See if it is time to transmit
-    anenometer();
+    
   } else if((rTime - dataTimer) > 3000) { 
-    temp();
+    //temp();
   } else if((rTime - dataTimer) > 9000) {
-    adc();
+    //ads_new();
   } else if((rTime - dataTimer) > 11000) {
-    wifi_send_data();
+    
+  } else {
+    
   }
-  
+
 delay(1000);
+anenometer();
 }
 
 
