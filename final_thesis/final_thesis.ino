@@ -99,8 +99,8 @@ void ads_new() {
 void anenometer(){
     detachInterrupt(interruptPin); //shut off wind speed measurement interrupt until done communication
       float aWSpeed = getAvgWindSpeed(culPulseTime,avgWindCount); //calculate average wind speed
-      if(aWSpeed >= aSetting) digitalWrite(13, HIGH);   // high speed wind detected so turn the LED on
-      else digitalWrite(13, LOW);   //no alarm so ensure LED is off
+      // if(aWSpeed >= aSetting) digitalWrite(13, HIGH);   // high speed wind detected so turn the LED on
+      // else digitalWrite(13, LOW);   //no alarm so ensure LED is off
       culPulseTime = 0; //reset cumulative pulse counter
       avgWindCount = 0; //reset average wind count
 
