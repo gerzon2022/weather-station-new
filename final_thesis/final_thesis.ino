@@ -1,43 +1,8 @@
-#include <Arduino.h>
-#include <Adafruit_ADS1X15.h>
-#include "Adafruit_Si7021.h"
-
-#include <WiFi.h>
-#include <HTTPClient.h>
-
-
-const char* ssid = "PLDTHOMEFIBRrf3P2";
-const char* password = "PLDTWIFIgFyQZ";
-
-//Your Domain name with URL path or IP address with path
-String serverName = "https://weather-station-2023.000webhostapp.com/TX.php";
-
-//https://weather-station-2023.000webhostapp.com/tx.php?rain=1&wind=2&temp=3&humid=4&solar=5
-
-uint32_t delayMS;
-//--dht var till here
-
-//Adafruit_ADS1115 ads;  /* Use this for the 16-bit version */
-Adafruit_ADS1015 ads;     /* Use this for the 12-bit version */
-
-
-//   delay(1000);
-// }
-
-float tempVal = 0;
-float humidVal = 0;
-float windVal = 0;
-float solarVal = 0;
-float rainVal = 0;
-
-bool enableHeater = false;
-uint8_t loopCnt = 0;
-Adafruit_Si7021 sensor = Adafruit_Si7021();
 
 long interval = 1800;  
 long previousMillis = 0;
 //*****************Arduino anemometer sketch******************************
-const byte interruptPin = 18; //anemomter input to digital pin
+const byte interruptPin = 25; //anemomter input to digital pin
 volatile unsigned long sTime = 0; //stores start time for wind speed calculation
 unsigned long dataTimer = 0; //used to track how often to communicate data
 volatile float pulseTime = 0; //stores time between one anemomter relay closing and the next
@@ -70,37 +35,12 @@ float getAvgWindSpeed(float cPulse,int per) {
   if(per) return getWindMPH(getAnemometerFreq((float)(cPulse/per)));
   else return 0; //average wind speed is zero and we can't divide by zero
   }
-void ads_new() {
-  //Serial.begin(9600);
-  Serial.println("Hello!");
-
-  Serial.println("Getting single-ended readings from AIN0..3");
-  Serial.println("ADC Range: +/- 6.144V (1 bit = 3mV/ADS1015, 0.1875mV/ADS1115)");
-
-     int16_t adc0, adc1, adc2, adc3;
-       float volts0, volts1, volts2, volts3;
-
-      adc0 = ads.readADC_SingleEnded(0);
-      adc1 = ads.readADC_SingleEnded(1);
-      adc2 = ads.readADC_SingleEnded(2);
-      adc3 = ads.readADC_SingleEnded(3);
-
-      volts0 = ads.computeVolts(adc0);
-      volts1 = ads.computeVolts(adc1);
-      volts2 = ads.computeVolts(adc2);
-      volts3 = ads.computeVolts(adc3);
-      solarVal = volts0;
-      Serial.println("-----------------------------------------------------------");
-      Serial.print("AIN0: "); Serial.print(adc0); Serial.print("  "); Serial.print(volts0); Serial.println("V");
-      Serial.print("AIN1: "); Serial.print(adc1); Serial.print("  "); Serial.print(volts1); Serial.println("V");
-      Serial.print("AIN2: "); Serial.print(adc2); Serial.print("  "); Serial.print(volts2); Serial.println("V");
-      Serial.print("AIN3: "); Serial.print(adc3); Serial.print("  "); Serial.print(volts3); Serial.println("V");
-}
+float windVal = 0;
 void anenometer(){
     detachInterrupt(interruptPin); //shut off wind speed measurement interrupt until done communication
       float aWSpeed = getAvgWindSpeed(culPulseTime,avgWindCount); //calculate average wind speed
-      // if(aWSpeed >= aSetting) digitalWrite(13, HIGH);   // high speed wind detected so turn the LED on
-      // else digitalWrite(13, LOW);   //no alarm so ensure LED is off
+      if(aWSpeed >= aSetting) digitalWrite(13, HIGH);   // high speed wind detected so turn the LED on
+      else digitalWrite(13, LOW);   //no alarm so ensure LED is off
       culPulseTime = 0; //reset cumulative pulse counter
       avgWindCount = 0; //reset average wind count
 
@@ -123,137 +63,12 @@ void anenometer(){
       attachInterrupt(digitalPinToInterrupt(interruptPin), anemometerISR, RISING); //turn interrupt back on
       dataTimer = millis(); //reset loop timer
 }
-void temp(){
-  Serial.print("Humidity:    ");
-  humidVal = sensor.readHumidity();
-  Serial.print(humidVal, 2);
-  Serial.print("\tTemperature: ");
-  tempVal = sensor.readTemperature();
-  Serial.println(tempVal, 2);
-  delay(1000);
-
-  // Toggle heater enabled state every 30 seconds
-  // An ~1.8 degC temperature increase can be noted when heater is enabled
- // if (++loopCnt == 30) {
-    enableHeater = !enableHeater;
-    sensor.heater(enableHeater);
-    Serial.print("Heater Enabled State: ");
-    if (sensor.isHeaterEnabled())
-      Serial.println("ENABLED");
-    else
-      Serial.println("DISABLED");
-       
-   // loopCnt = 0;
-  //}
-
-}
-
-void wifi_send_data() {
-  //Check WiFi connection status
-    if(WiFi.status()== WL_CONNECTED){
-      HTTPClient http;
-
-      String serverPath = serverName + "?rain="+rainVal+"&wind="+windVal+"&temp="+ tempVal +"&humid="+humidVal+"&solar="+solarVal;
-      Serial.println(serverPath);
-      // Your Domain name with URL path or IP address with path
-      http.begin(serverPath.c_str());
-      
-      // If you need Node-RED/server authentication, insert user and password below
-      //http.setAuthorization("REPLACE_WITH_SERVER_USERNAME", "REPLACE_WITH_SERVER_PASSWORD");
-      
-      // Send HTTP GET request
-      int httpResponseCode = http.GET();
-      
-      if (httpResponseCode>0) {
-        Serial.print("HTTP Response code: ");
-        Serial.println(httpResponseCode);
-        String payload = http.getString();
-        Serial.println(payload);
-      }
-      else {
-        Serial.print("Error code: ");
-        Serial.println(httpResponseCode);
-      }
-      // Free resources
-      http.end();
-    }
-    else {
-      Serial.println("WiFi Disconnected");
-    }
-}
-
-
 void setup() {
 
 Serial.begin(9600);
-
-WiFi.begin(ssid, password);
-  Serial.println("Connecting");
-  while(WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print(".");
-  }
-  Serial.println("");
-  Serial.print("Connected to WiFi network with IP Address: ");
-  Serial.println(WiFi.localIP());
- 
-  //Serial.println("Timer set to 5 seconds (timerDelay variable), it will take 5 seconds before publishing the first reading.");
-
-
-//-------analog setup here
- 
-
-  // The ADC input range (or gain) can be changed via the following
-  // functions, but be careful never to exceed VDD +0.3V max, or to
-  // exceed the upper and lower limits if you adjust the input range!
-  // Setting these values incorrectly may destroy your ADC!
-  //                                                                ADS1015  ADS1115
-  //                                                                -------  -------
-   ads.setGain(GAIN_TWOTHIRDS);  // 2/3x gain +/- 6.144V  1 bit = 3mV      0.1875mV (default)
-  // ads.setGain(GAIN_ONE);        // 1x gain   +/- 4.096V  1 bit = 2mV      0.125mV
-   //ads.setGain(GAIN_TWO);        // 2x gain   +/- 2.048V  1 bit = 1mV      0.0625mV
-  // ads.setGain(GAIN_FOUR);       // 4x gain   +/- 1.024V  1 bit = 0.5mV    0.03125mV
-  // ads.setGain(GAIN_EIGHT);      // 8x gain   +/- 0.512V  1 bit = 0.25mV   0.015625mV
-  //ads.setGain(GAIN_SIXTEEN);    // 16x gain  +/- 0.256V  1 bit = 0.125mV  0.0078125mV
-
-  if (!ads.begin()) {
-    Serial.println("Failed to initialize ADS.");
-    while (1);
-  }
-
-//--------------
-  pinMode(13, OUTPUT); //setup LED pin to signal high wind alarm condition
   pinMode(interruptPin, INPUT_PULLUP); //set interrupt pin to input pullup
   attachInterrupt(interruptPin, anemometerISR, RISING); //setup interrupt on anemometer input pin, interrupt will occur whenever falling edge is detected
   dataTimer = millis(); //reset loop timer
-
-  Serial.println("Si7021 test!");
-  if (!sensor.begin()) {
-    Serial.println("Did not find Si7021 sensor!");
-    while (true)
-      ;
-  }
-  Serial.print("Found model ");
-  switch(sensor.getModel()) {
-    case SI_Engineering_Samples:
-      Serial.print("SI engineering samples"); break;
-    case SI_7013:
-      Serial.print("Si7013"); break;
-    case SI_7020:
-      Serial.print("Si7020"); break;
-    case SI_7021:
-      Serial.print("Si7021"); break;
-    case SI_UNKNOWN:
-    default:
-      Serial.print("Unknown");
-  }
-  Serial.print(" Rev(");
-  Serial.print(sensor.getRevision());
-  Serial.print(")");
-  Serial.print(" Serial #"); Serial.print(sensor.sernum_a, HEX); Serial.println(sensor.sernum_b, HEX);
-
-
-
 }
 
 void loop() {
@@ -263,19 +78,11 @@ void loop() {
 if((rTime - sTime) > 2500) pulseTime = 0; //if the wind speed has dropped below 1MPH than set it to zero
     
 if((rTime - dataTimer) > 6000){ //See if it is time to transmit
-    
-  } else if((rTime - dataTimer) > 3000) { 
-    //temp();
-  } else if((rTime - dataTimer) > 9000) {
-    //ads_new();
-  } else if((rTime - dataTimer) > 11000) {
-    
-  } else {
-    
-  }
+    anenometer();
+  } 
 
 delay(1000);
-anenometer();
+
 }
 
 
